@@ -80,9 +80,11 @@ jobs:
           TRANSMISSION_PASS: ${{ secrets.TRANSMISSION_PASS }}
         run: |
           IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
+          # Double $ signs in AUTH_USERS bcrypt hash — Docker Compose interprets $ as variable substitution
+          ESCAPED_AUTH_USERS=$(echo "$AUTH_USERS" | sed 's/\$/\$\$/g')
           ENV_CONTENT=$(printf '%s\n' \
             "IMAGE_TAG=${IMAGE_TAG}" \
-            "AUTH_USERS=${AUTH_USERS}" \
+            "AUTH_USERS=${ESCAPED_AUTH_USERS}" \
             "AUTH_SECRET_KEY=${AUTH_SECRET_KEY}" \
             "JACKETT_API_KEY=${JACKETT_API_KEY}" \
             "TMDB_API_KEY=${TMDB_API_KEY}" \
