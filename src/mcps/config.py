@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # OAuth
-    auth_users: str = ""  # "user1:$2b$...,user2:$2b$..."
-    auth_secret_key: str = "dev-secret-change-me"
+    # OAuth (Google)
+    google_client_id: str = ""
+    google_client_secret: str = ""
     auth_issuer: str = "http://localhost:8000"
 
     # Jackett
@@ -32,19 +32,6 @@ class Settings(BaseSettings):
     transmission_user: str | None = None
     transmission_pass: str | None = None
     transmission_ssl: bool = False
-
-    def get_users(self) -> dict[str, str]:
-        """Parse AUTH_USERS into {username: bcrypt_hash} dict."""
-        if not self.auth_users:
-            return {}
-        users = {}
-        for entry in self.auth_users.split(","):
-            entry = entry.strip()
-            if ":" not in entry:
-                continue
-            username, hash_ = entry.split(":", 1)
-            users[username.strip()] = hash_.strip()
-        return users
 
 
 settings = Settings()

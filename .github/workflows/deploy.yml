@@ -72,8 +72,8 @@ jobs:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-          AUTH_USERS: ${{ secrets.AUTH_USERS }}
-          AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           JACKETT_API_KEY: ${{ secrets.JACKETT_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TRANSMISSION_USER: ${{ secrets.TRANSMISSION_USER }}
@@ -83,12 +83,10 @@ jobs:
           WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
         run: |
           IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
-          # Double $ signs in AUTH_USERS bcrypt hash — Docker Compose interprets $ as variable substitution
-          ESCAPED_AUTH_USERS=$(echo "$AUTH_USERS" | sed 's/\$/\$\$/g')
           ENV_CONTENT=$(printf '%s\n' \
             "IMAGE_TAG=${IMAGE_TAG}" \
-            "AUTH_USERS=${ESCAPED_AUTH_USERS}" \
-            "AUTH_SECRET_KEY=${AUTH_SECRET_KEY}" \
+            "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
+            "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" \
             "JACKETT_API_KEY=${JACKETT_API_KEY}" \
             "TMDB_API_KEY=${TMDB_API_KEY}" \
             "TRANSMISSION_USER=${TRANSMISSION_USER}" \

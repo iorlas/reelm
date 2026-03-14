@@ -1,13 +1,11 @@
 x-shared-env: &shared-env
-  AUTH_USERS: ${AUTH_USERS}
-  AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
 
 x-shared: &shared
   image: ghcr.io/iorlas/mcps:${IMAGE_TAG}
   expose:
     - "8000"
-  volumes:
-    - auth-state:/data/auth
   networks:
     - dokploy-network
   restart: unless-stopped
@@ -108,7 +106,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  auth-state:
   jackett-config:
 
 networks:
