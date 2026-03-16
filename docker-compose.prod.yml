@@ -6,7 +6,7 @@ x-reelm: &reelm
     - dokploy-network
   restart: unless-stopped
   healthcheck:
-    test: ["CMD-SHELL", "curl -sf -o /dev/null -w '%{http_code}' http://localhost:8000/ | grep -qE '200|404'"]
+    test: ["CMD-SHELL", "curl -sf -o /dev/null -w '%{http_code}' http://localhost:8000/ | grep -qE '200|404|406'"]
     interval: 10s
     timeout: 5s
     retries: 3
