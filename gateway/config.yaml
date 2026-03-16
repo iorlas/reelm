@@ -6,7 +6,7 @@ binds:
         mode: strict
         issuer: https://accounts.google.com/
         audiences:
-        - ${GOOGLE_CLIENT_ID}
+        - 1011781014217-5gdab31um832esm8tau9p4g7vm14ss9m.apps.googleusercontent.com
         jwks:
           url: https://www.googleapis.com/oauth2/v3/certs
       policies:

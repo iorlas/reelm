@@ -15,15 +15,10 @@ x-reelm: &reelm
 services:
   # ── Gateway (public, handles auth + federation) ──
   gateway:
-    image: cr.agentgateway.dev/agentgateway:0.11.1
-    ports:
+    image: ghcr.io/iorlas/reelm:${IMAGE_TAG}
+    command: ["agentgateway", "-f", "/etc/reelm/gateway.yaml"]
+    expose:
       - "3000"
-    environment:
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-    configs:
-      - source: gateway_config
-        target: /config.yaml
-    command: ["-f", "/config.yaml"]
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -92,37 +87,6 @@ services:
       traefik.http.routers.reelm-jackett-admin.entrypoints: web
       traefik.http.services.reelm-jackett-admin.loadbalancer.server.port: "9117"
     restart: unless-stopped
-
-configs:
-  gateway_config:
-    content: |
-      binds:
-      - port: 3000
-        listeners:
-        - routes:
-          - mcpAuthentication:
-              mode: strict
-              issuer: https://accounts.google.com/
-              audiences:
-              - ${GOOGLE_CLIENT_ID}
-              jwks:
-                url: https://www.googleapis.com/oauth2/v3/certs
-            policies:
-              cors:
-                allowOrigins: ["*"]
-                allowHeaders: [mcp-protocol-version, content-type, authorization]
-            backends:
-            - mcp:
-                targets:
-                - name: reelm_torrents
-                  streamableHttp:
-                    url: http://reelm-transmission:8000/mcp
-                - name: reelm_search
-                  streamableHttp:
-                    url: http://reelm-jackett:8000/mcp
-                - name: reelm_storage
-                  streamableHttp:
-                    url: http://reelm-storage:8000/mcp
 
 volumes:
   jackett-config:

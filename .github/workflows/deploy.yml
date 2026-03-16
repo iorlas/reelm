@@ -72,9 +72,7 @@ jobs:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           JACKETT_API_KEY: ${{ secrets.JACKETT_API_KEY }}
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           TRANSMISSION_USER: ${{ secrets.TRANSMISSION_USER }}
           TRANSMISSION_PASS: ${{ secrets.TRANSMISSION_PASS }}
           WEBDAV_URL: ${{ secrets.WEBDAV_URL }}
@@ -84,9 +82,7 @@ jobs:
           IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
           ENV_CONTENT=$(printf '%s\n' \
             "IMAGE_TAG=${IMAGE_TAG}" \
-            "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
             "JACKETT_API_KEY=${JACKETT_API_KEY}" \
-            "TMDB_API_KEY=${TMDB_API_KEY}" \
             "TRANSMISSION_USER=${TRANSMISSION_USER}" \
             "TRANSMISSION_PASS=${TRANSMISSION_PASS}" \
             "WEBDAV_URL=${WEBDAV_URL}" \
