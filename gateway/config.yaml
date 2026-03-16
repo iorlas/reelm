@@ -26,12 +26,13 @@ binds:
           exposeHeaders: ["Mcp-Session-Id"]
         mcpAuthentication:
           mode: strict
-          issuer: https://accounts.google.com/
-          audiences:
-          - 230381969946-tl8m06vb6kpqsmnf3o2g2lv9j0pv6753.apps.googleusercontent.com
+          issuer: https://pioneering-friendship-09-staging.authkit.app/
           jwks:
-            url: https://www.googleapis.com/oauth2/v3/certs
+            url: https://pioneering-friendship-09-staging.authkit.app/.well-known/jwks.json
           resourceMetadata:
             resource: https://reelm.shen.iorlas.net/mcp
+            scopesSupported:
+            - openid
+            - profile
             bearerMethodsSupported:
             - header
