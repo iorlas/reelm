@@ -2,19 +2,7 @@ binds:
 - port: 3000
   listeners:
   - routes:
-    - mcpAuthentication:
-        mode: strict
-        issuer: https://accounts.google.com/
-        audiences:
-        - 1011781014217-5gdab31um832esm8tau9p4g7vm14ss9m.apps.googleusercontent.com
-        jwks:
-          url: https://www.googleapis.com/oauth2/v3/certs
-      policies:
-        cors:
-          allowOrigins: ["*"]
-          allowHeaders: ["*"]
-          exposeHeaders: ["Mcp-Session-Id"]
-      backends:
+    - backends:
       - mcp:
           targets:
           - name: reelm_torrents
@@ -26,3 +14,24 @@ binds:
           - name: reelm_storage
             mcp:
               host: http://reelm-storage:8000/mcp/
+      matches:
+      - path:
+          exact: /mcp
+      - path:
+          exact: /.well-known/oauth-protected-resource/mcp
+      policies:
+        cors:
+          allowOrigins: ["*"]
+          allowHeaders: ["*"]
+          exposeHeaders: ["Mcp-Session-Id"]
+        mcpAuthentication:
+          mode: strict
+          issuer: https://accounts.google.com/
+          audiences:
+          - 1011781014217-5gdab31um832esm8tau9p4g7vm14ss9m.apps.googleusercontent.com
+          jwks:
+            url: https://www.googleapis.com/oauth2/v3/certs
+          resourceMetadata:
+            resource: https://reelm.shen.iorlas.net/mcp
+            bearerMethodsSupported:
+            - header
