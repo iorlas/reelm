@@ -26,7 +26,7 @@ binds:
           exposeHeaders: ["Mcp-Session-Id"]
         mcpAuthentication:
           mode: strict
-          issuer: https://pioneering-friendship-09-staging.authkit.app/
+          issuer: https://pioneering-friendship-09-staging.authkit.app
           audiences:
           - https://reelm.shen.iorlas.net
           jwks:
