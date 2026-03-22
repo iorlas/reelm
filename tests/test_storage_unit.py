@@ -224,7 +224,7 @@ def test_walk_recursively_visits_subdirectories(mocker):
                 FileEntry(name="movies", path="/media/movies/", is_dir=True, size=0, size_mb=0.0),
                 FileEntry(name="file1.txt", path="/media/file1.txt", is_dir=False, size=100, size_mb=0.0),
             ]
-        elif path == "/media/movies/":
+        if path == "/media/movies/":
             return [
                 FileEntry(name="avatar.mkv", path="/media/movies/avatar.mkv", is_dir=False, size=5000, size_mb=4.8),
             ]
@@ -252,12 +252,12 @@ def test_walk_respects_max_depth(mocker):
             return [
                 FileEntry(name="media", path="/media/", is_dir=True, size=0, size_mb=0.0),
             ]
-        elif path == "/media/":
+        if path == "/media/":
             return [
                 FileEntry(name="movies", path="/media/movies/", is_dir=True, size=0, size_mb=0.0),
                 FileEntry(name="file.txt", path="/media/file.txt", is_dir=False, size=50, size_mb=0.0),
             ]
-        elif path == "/media/movies/":
+        if path == "/media/movies/":
             # Should NOT be reached with max_depth=1
             return [
                 FileEntry(name="deep.mkv", path="/media/movies/deep.mkv", is_dir=False, size=9999, size_mb=9.5),
