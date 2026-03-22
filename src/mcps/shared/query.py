@@ -45,7 +45,7 @@ def apply_query[T: BaseModel](
     if key_field:
         key_to_item = {getattr(item, key_field): item for item in items}
     else:
-        key_to_item = {i: item for i, item in enumerate(items)}
+        key_to_item = dict(enumerate(items))
         for i, d in enumerate(data):
             d["_idx"] = i
         key_field = "_idx"
@@ -91,8 +91,7 @@ def project[T: BaseModel](
 
 def _tsv_from_rows(keys: list[str], rows: list[dict]) -> str:
     lines = ["\t".join(keys)]
-    for row in rows:
-        lines.append("\t".join(str(row[k]) for k in keys))
+    lines.extend("\t".join(str(row[k]) for k in keys) for row in rows)
     return "\n".join(lines)
 
 

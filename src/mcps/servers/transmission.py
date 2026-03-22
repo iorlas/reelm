@@ -117,7 +117,7 @@ def _resolve_url(url: str) -> str | bytes:
         # Got a .torrent file — return raw bytes for Transmission
         if resp.status_code == 200 and resp.content:
             return resp.content
-    except Exception as e:
+    except (httpx.HTTPError, OSError) as e:
         logger.debug(f"transmission.resolve_url_failed url={url} error={e}")
     return url
 

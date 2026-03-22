@@ -1,4 +1,4 @@
-.PHONY: check lint lint-docker lint-compose lint-deps test coverage-diff fmt fix
+.PHONY: check lint test coverage-diff fix fmt bootstrap
 
 # ── Full quality gate ──
 check: lint test
@@ -14,6 +14,8 @@ lint:
 		TMDB_API_KEY=x AUTH0_DOMAIN=x AUTH0_CLIENT_ID=x AUTH0_CLIENT_SECRET=x AUTH0_AUDIENCE=x \
 		docker compose -f docker-compose.prod.yml config --quiet
 	@docker compose -f docker-compose.yml config --quiet
+	@uv run python scripts/check-json.py
+	@uv run python scripts/check-file-length.py
 	@uv run pip-audit
 
 # ── Fix: auto-fix formatting and import sorting, then verify with lint. ──
@@ -29,6 +31,12 @@ test:
 # ── Diff coverage: coverage of changed lines vs main. Fails below 95%. ──
 coverage-diff:
 	uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=95
+
+# ── Bootstrap (idempotent) ──
+bootstrap:
+	uv sync
+	@command -v prek >/dev/null 2>&1 && prek install || (command -v pre-commit >/dev/null 2>&1 && pre-commit install || echo "Install prek (brew install prek) or pre-commit for git hooks")
+	@echo "Dev environment ready. Run 'make lint' to verify."
 
 # ── Aliases ──
 fmt: fix

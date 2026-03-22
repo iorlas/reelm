@@ -62,32 +62,29 @@ class TorrentDetail(BaseModel):
 TorrentResult = TorrentDetail
 
 
+_INT_ATTRS = {"seeders", "size"}
+_INT_REMAP = {"peers": "leechers"}
+_STR_ATTRS = {"infohash", "magneturl", "tvdbid", "imdbid"}
+
+
 def _extract_torznab_attrs(attrs: list | dict | None) -> dict:
     """Extract torznab:attr elements into a dict."""
     if attrs is None:
         return {}
     if isinstance(attrs, dict):
         attrs = [attrs]
-    result = {}
+    result: dict = {}
     for attr in attrs:
         name = attr.get("@name", "")
         value = attr.get("@value", "")
-        if name == "seeders":
-            result["seeders"] = int(value) if value else 0
-        elif name == "peers":
-            result["leechers"] = int(value) if value else 0
-        elif name == "size":
-            result["size"] = int(value) if value else 0
-        elif name == "infohash":
-            result["infohash"] = value
-        elif name == "magneturl":
-            result["magneturl"] = value
+        if name in _INT_ATTRS:
+            result[name] = int(value) if value else 0
+        elif name in _INT_REMAP:
+            result[_INT_REMAP[name]] = int(value) if value else 0
+        elif name in _STR_ATTRS:
+            result[name] = value
         elif name == "category":
             result.setdefault("category", []).append(int(value) if value else 0)
-        elif name == "tvdbid":
-            result["tvdbid"] = value
-        elif name == "imdbid":
-            result["imdbid"] = value
     return result
 
 
@@ -209,14 +206,14 @@ def search_torrents(
 
 @mcp.tool
 def get_torrent(
-    id: Annotated[str, Field(description="Torrent ID (jkt_xxxxxxxx)")],
+    torrent_id: Annotated[str, Field(description="Torrent ID (jkt_xxxxxxxx)")],
 ) -> TorrentDetail:
     """Get torrent details by ID."""
-    if not id.startswith(ID_PREFIX):
-        raise ValueError(f"Invalid torrent ID format: {id}. Expected jkt_xxxxxxxx from search results.")
-    if id not in _cache:
-        raise ValueError(f"Unknown torrent ID: {id}. Search first.")
-    return _cache[id]
+    if not torrent_id.startswith(ID_PREFIX):
+        raise ValueError(f"Invalid torrent ID format: {torrent_id}. Expected jkt_xxxxxxxx from search results.")
+    if torrent_id not in _cache:
+        raise ValueError(f"Unknown torrent ID: {torrent_id}. Search first.")
+    return _cache[torrent_id]
 
 
 optimize_tool_schemas(mcp)

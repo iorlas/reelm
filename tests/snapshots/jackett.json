@@ -84,13 +84,13 @@
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
-        "id": {
+        "torrent_id": {
           "description": "Torrent ID (jkt_xxxxxxxx)",
           "type": "string"
         }
       },
       "required": [
-        "id"
+        "torrent_id"
       ],
       "type": "object"
     }

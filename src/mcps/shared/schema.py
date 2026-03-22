@@ -26,6 +26,6 @@ def strip_nullable_anyof(schema: Any) -> Any:
 def optimize_tool_schemas(mcp: FastMCP) -> None:
     """Post-process all tool schemas on a FastMCP instance to reduce token usage."""
     provider = mcp.providers[0]
-    for component in provider._components.values():  # type: ignore[unresolved-attribute]
+    for component in provider._components.values():  # noqa: SLF001  # type: ignore[unresolved-attribute]
         if isinstance(component, Tool):
             component.parameters = strip_nullable_anyof(component.parameters)
