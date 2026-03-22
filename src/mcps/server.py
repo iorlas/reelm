@@ -15,7 +15,7 @@ from mcps.servers.tmdb import mcp as tmdb_mcp
 from mcps.servers.transmission import mcp as transmission_mcp
 
 # ASGI apps — uvicorn targets these directly
-jackett = jackett_mcp.http_app(path="/")
-transmission = transmission_mcp.http_app(path="/")
-storage = storage_mcp.http_app(path="/")
-tmdb = tmdb_mcp.http_app(path="/")
+jackett = jackett_mcp.http_app(path="/mcp")
+transmission = transmission_mcp.http_app(path="/mcp")
+storage = storage_mcp.http_app(path="/mcp")
+tmdb = tmdb_mcp.http_app(path="/mcp")
