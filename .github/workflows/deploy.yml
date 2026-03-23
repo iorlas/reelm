@@ -55,6 +55,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
       # Validate compose syntax before anything else
       - name: Validate compose syntax
         run: |
@@ -105,12 +108,15 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Validate required secrets
+      - name: Deploy to Dokploy
         if: github.event_name != 'pull_request'
         env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          # dokctl config
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
+          # App secrets — dokctl auto-detects these from ${VAR} refs in compose file
+          IMAGE_TAG: main-${{ github.sha }}
           JACKETT_API_KEY: ${{ secrets.JACKETT_API_KEY }}
           TRANSMISSION_USER: ${{ secrets.TRANSMISSION_USER }}
           TRANSMISSION_PASS: ${{ secrets.TRANSMISSION_PASS }}
@@ -123,119 +129,8 @@ jobs:
           OPENMEMORY_POSTGRES_USER: ${{ secrets.OPENMEMORY_POSTGRES_USER }}
           OPENMEMORY_POSTGRES_PASSWORD: ${{ secrets.OPENMEMORY_POSTGRES_PASSWORD }}
         run: |
-          MISSING=""
-          [ -z "$DOKPLOY_URL" ] && MISSING="$MISSING DOKPLOY_URL"
-          [ -z "$DOKPLOY_AUTH_TOKEN" ] && MISSING="$MISSING DOKPLOY_AUTH_TOKEN"
-          [ -z "$DOKPLOY_COMPOSE_ID" ] && MISSING="$MISSING DOKPLOY_COMPOSE_ID"
-          [ -z "$JACKETT_API_KEY" ] && MISSING="$MISSING JACKETT_API_KEY"
-          [ -z "$TRANSMISSION_USER" ] && MISSING="$MISSING TRANSMISSION_USER"
-          [ -z "$TRANSMISSION_PASS" ] && MISSING="$MISSING TRANSMISSION_PASS"
-          [ -z "$WEBDAV_URL" ] && MISSING="$MISSING WEBDAV_URL"
-          [ -z "$WEBDAV_USER" ] && MISSING="$MISSING WEBDAV_USER"
-          [ -z "$WEBDAV_PASS" ] && MISSING="$MISSING WEBDAV_PASS"
-          [ -z "$TMDB_API_KEY" ] && MISSING="$MISSING TMDB_API_KEY"
-          [ -z "$GOOGLE_CLIENT_ID" ] && MISSING="$MISSING GOOGLE_CLIENT_ID"
-          [ -z "$GOOGLE_CLIENT_SECRET" ] && MISSING="$MISSING GOOGLE_CLIENT_SECRET"
-          [ -z "$OPENMEMORY_POSTGRES_USER" ] && MISSING="$MISSING OPENMEMORY_POSTGRES_USER"
-          [ -z "$OPENMEMORY_POSTGRES_PASSWORD" ] && MISSING="$MISSING OPENMEMORY_POSTGRES_PASSWORD"
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing required secrets:$MISSING"
-            exit 1
-          fi
+          mkdir -p ~/.config/dokploy
+          echo "${DOKPLOY_AUTH_TOKEN}" > ~/.config/dokploy/token
+          echo "${DOKPLOY_URL}" > ~/.config/dokploy/url
 
-      - name: Sync compose + env to Dokploy (atomic) and verify
-        if: github.event_name != 'pull_request'
-        env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
-          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-          JACKETT_API_KEY: ${{ secrets.JACKETT_API_KEY }}
-          TRANSMISSION_USER: ${{ secrets.TRANSMISSION_USER }}
-          TRANSMISSION_PASS: ${{ secrets.TRANSMISSION_PASS }}
-          WEBDAV_URL: ${{ secrets.WEBDAV_URL }}
-          WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
-          WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          OPENMEMORY_POSTGRES_USER: ${{ secrets.OPENMEMORY_POSTGRES_USER }}
-          OPENMEMORY_POSTGRES_PASSWORD: ${{ secrets.OPENMEMORY_POSTGRES_PASSWORD }}
-        run: |
-          IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
-
-          # Build full env payload — every var Dokploy needs (full replacement, omitted = wiped)
-          ENV_CONTENT=$(printf '%s\n' \
-            "IMAGE_TAG=${IMAGE_TAG}" \
-            "JACKETT_API_KEY=${JACKETT_API_KEY}" \
-            "TRANSMISSION_USER=${TRANSMISSION_USER}" \
-            "TRANSMISSION_PASS=${TRANSMISSION_PASS}" \
-            "WEBDAV_URL=${WEBDAV_URL}" \
-            "WEBDAV_USER=${WEBDAV_USER}" \
-            "WEBDAV_PASS=${WEBDAV_PASS}" \
-            "TMDB_API_KEY=${TMDB_API_KEY}" \
-            "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" \
-            "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" \
-            "OPENMEMORY_POSTGRES_USER=${OPENMEMORY_POSTGRES_USER}" \
-            "OPENMEMORY_POSTGRES_PASSWORD=${OPENMEMORY_POSTGRES_PASSWORD}" \
-          )
-
-          # Atomic update — env + compose together
-          RESPONSE=$(curl -s --fail-with-body -X POST "${DOKPLOY_URL}/api/compose.update" \
-            -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg id "${DOKPLOY_COMPOSE_ID}" \
-              --arg env "$ENV_CONTENT" \
-              --arg compose "$(cat docker-compose.prod.yml)" \
-              '{composeId: $id, env: $env, composeFile: $compose}'
-            )")
-
-          # VERIFY update persisted (compose.update silently ignores wrong field names)
-          STORED_LEN=$(echo "$RESPONSE" | jq -r '.composeFile | length')
-          if [ "$STORED_LEN" -lt 10 ]; then
-            echo "::error::compose.update did not persist composeFile (got $STORED_LEN chars)"
-            echo "$RESPONSE" | jq -r '.sourceType, .composeFile[:100]'
-            exit 1
-          fi
-          echo "compose.update verified: $STORED_LEN chars persisted"
-
-      - name: Deploy and wait for completion
-        if: github.event_name != 'pull_request'
-        env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
-          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-        run: |
-          IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
-
-          # Trigger deploy
-          curl -s --fail-with-body -X POST "${DOKPLOY_URL}/api/compose.deploy" \
-            -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"composeId\": \"${DOKPLOY_COMPOSE_ID}\", \"title\": \"Deploy ${IMAGE_TAG}\"}"
-
-          echo "Deploy triggered, polling status..."
-
-          # Poll deployment status (60 attempts x 5s = 5 min timeout)
-          for i in $(seq 1 60); do
-            sleep 5
-            STATUS=$(curl -s "${DOKPLOY_URL}/api/deployment.allByCompose?composeId=${DOKPLOY_COMPOSE_ID}" \
-              -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" | jq -r '.[0].status // "unknown"')
-
-            echo "  Attempt $i/60: status=$STATUS"
-
-            if [ "$STATUS" = "done" ]; then
-              echo "Deploy succeeded"
-              exit 0
-            fi
-
-            if [ "$STATUS" = "error" ]; then
-              echo "::error::Deploy FAILED"
-              curl -s "${DOKPLOY_URL}/api/deployment.allByCompose?composeId=${DOKPLOY_COMPOSE_ID}" \
-                -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" | jq -r '.[0].errorMessage // "no error message"'
-              exit 1
-            fi
-          done
-
-          echo "::error::Deploy TIMEOUT (5 min)"
-          exit 1
+          uv run scripts/dokctl.py deploy "${DOKPLOY_COMPOSE_ID}" docker-compose.prod.yml

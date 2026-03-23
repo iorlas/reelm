@@ -5,8 +5,9 @@ import subprocess
 import sys
 
 MAX_LINES = 500
+EXCLUDE = {"scripts/dokctl.py"}  # vendored tool, not project code
 result = subprocess.run(["git", "ls-files", "*.py", "**/*.py"], capture_output=True, text=True)  # noqa: S603, S607
-files = [pathlib.Path(f) for f in result.stdout.strip().splitlines() if f]
+files = [pathlib.Path(f) for f in result.stdout.strip().splitlines() if f and str(f) not in EXCLUDE]
 
 errors = []
 for p in files:
