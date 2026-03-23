@@ -335,7 +335,17 @@ def cmd_deploy(client: httpx.Client, args: argparse.Namespace) -> None:
     # Step 1: sync (includes env resolution + validation)
     cmd_sync(client, args)
 
-    # Step 2: trigger deploy
+    # Step 2: snapshot current latest deployment ID (to detect the new one)
+    pre_resp = api_call(client, "GET", "deployment.allByCompose", {
+        "composeId": args.compose_id,
+    })
+    prev_deploy_id = None
+    if not pre_resp.is_error:
+        pre_deployments = pre_resp.json()
+        if pre_deployments and isinstance(pre_deployments, list):
+            prev_deploy_id = pre_deployments[0].get("deploymentId")
+
+    # Step 3: trigger deploy
     print("\nTriggering deploy...")
     deploy_resp = api_call(client, "POST", "compose.deploy", {
         "composeId": args.compose_id,
@@ -346,7 +356,7 @@ def cmd_deploy(client: httpx.Client, args: argparse.Namespace) -> None:
 
     print("Deploy triggered. Polling status...")
 
-    # Step 3: poll Dokploy deploy status
+    # Step 4: poll Dokploy deploy status — wait for a NEW deployment (not the old one)
     max_attempts = args.timeout // 5
     app_name = ""
     for i in range(1, max_attempts + 1):
@@ -369,6 +379,12 @@ def cmd_deploy(client: httpx.Client, args: argparse.Namespace) -> None:
             continue
 
         latest = deployments[0] if isinstance(deployments, list) else deployments
+
+        # Skip stale deployment from before our trigger
+        if prev_deploy_id and latest.get("deploymentId") == prev_deploy_id:
+            print(f"  [{i}/{max_attempts}] Waiting for new deployment to appear...")
+            continue
+
         status = latest.get("status", "unknown")
         print(f"  [{i}/{max_attempts}] status={status}")
 
