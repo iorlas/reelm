@@ -28,5 +28,8 @@ class Settings(BaseSettings):
     transmission_pass: str | None = None
     transmission_ssl: bool = False
 
+    # OpenMemory (default localhost for local dev; overridden via OPENMEMORY_URL env var in production)
+    openmemory_url: str = "http://localhost:8080"
+
 
 settings = Settings()
