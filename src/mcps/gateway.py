@@ -13,6 +13,8 @@ from fastmcp import FastMCP
 from fastmcp.server import create_proxy
 from fastmcp.server.auth.providers.google import GoogleProvider
 
+from mcps.servers.memory import mcp as memory_mcp
+
 # Google OAuth config from environment
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -40,7 +42,11 @@ gateway = FastMCP(
         "Use reelm_torrents tools to manage downloads, "
         "reelm_search tools to find torrents, "
         "reelm_media tools to discover movies/TV, "
-        "reelm_storage tools to manage files on the NAS."
+        "reelm_storage tools to manage files on the NAS. "
+        "Use reelm_memory tools to store and recall shared household media context — "
+        "what the household has watched, wants to watch, quality preferences, content rules. "
+        "This is NOT your personal memory — it persists across all AI clients "
+        "(Claude, ChatGPT, Copilot) and is shared by all household members."
     ),
     auth=auth,
 )
@@ -50,6 +56,7 @@ gateway.mount(create_proxy(TRANSMISSION_URL), namespace="reelm_torrents")
 gateway.mount(create_proxy(JACKETT_URL), namespace="reelm_search")
 gateway.mount(create_proxy(STORAGE_URL), namespace="reelm_storage")
 gateway.mount(create_proxy(TMDB_URL), namespace="reelm_media")
+gateway.mount(memory_mcp, namespace="reelm_memory")
 
 # --- ASGI app for uvicorn ---
 app = gateway.http_app(path="/mcp")

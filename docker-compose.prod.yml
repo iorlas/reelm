@@ -25,6 +25,7 @@ services:
       JACKETT_MCP_URL: http://reelm-jackett:8000/mcp/
       STORAGE_MCP_URL: http://reelm-storage:8000/mcp/
       TMDB_MCP_URL: http://reelm-tmdb:8000/mcp/
+      OPENMEMORY_URL: http://openmemory-api:8080
     depends_on:
       reelm-transmission:
         condition: service_healthy
@@ -34,6 +35,11 @@ services:
         condition: service_healthy
       reelm-tmdb:
         condition: service_healthy
+      openmemory-api:
+        condition: service_healthy
+    networks:
+      - dokploy-network
+      - reelm-internal
     labels:
       traefik.enable: "true"
       traefik.http.routers.reelm.rule: Host(`reelm.shen.iorlas.net`)
@@ -99,9 +105,59 @@ services:
       traefik.http.services.reelm-jackett-admin.loadbalancer.server.port: "9117"
     restart: unless-stopped
 
+  # ── OpenMemory infrastructure (internal, no external access) ──
+  openmemory-db:
+    image: pgvector/pgvector:pg16
+    pull_policy: always
+    environment:
+      POSTGRES_USER: ${OPENMEMORY_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${OPENMEMORY_POSTGRES_PASSWORD}
+      POSTGRES_DB: openmemory
+    volumes:
+      - openmemory-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OPENMEMORY_POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - reelm-internal
+    restart: unless-stopped
+
+  openmemory-api:
+    image: ghcr.io/mem0ai/openmemory:latest
+    pull_policy: always
+    environment:
+      LLM_PROVIDER: openai
+      LLM_BASE_URL: http://litellm:4000
+      LLM_API_KEY: no-auth
+      LLM_MODEL: llama3.2:3b
+      EMBEDDER_PROVIDER: openai
+      EMBEDDER_BASE_URL: http://litellm:4000
+      EMBEDDER_API_KEY: no-auth
+      EMBEDDER_MODEL: nomic-embed-text
+      DATABASE_URL: postgresql://${OPENMEMORY_POSTGRES_USER}:${OPENMEMORY_POSTGRES_PASSWORD}@openmemory-db:5432/openmemory
+      VECTOR_STORE_PROVIDER: pgvector
+    depends_on:
+      openmemory-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - dokploy-network
+      - reelm-internal
+    restart: unless-stopped
+
 volumes:
   jackett-config:
+  openmemory-pgdata:
 
 networks:
   dokploy-network:
     external: true
+  reelm-internal:
+    internal: true
