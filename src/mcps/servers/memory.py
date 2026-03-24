@@ -11,7 +11,7 @@ from mcps.config import settings
 
 mcp = FastMCP("Reelm Memory")
 
-_BASE_URL = settings.openmemory_url
+_BASE_URL = settings.openviking_url
 
 
 async def _post(path: str, json: dict) -> dict:

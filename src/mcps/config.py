@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     transmission_pass: str | None = None
     transmission_ssl: bool = False
 
-    # mem0 API (default localhost for local dev; overridden via OPENMEMORY_URL env var in production)
-    openmemory_url: str = "http://localhost:8000"
+    # OpenViking (default localhost for local dev; overridden via OPENVIKING_URL env var in production)
+    openviking_url: str = "http://localhost:1933"
 
 
 settings = Settings()
