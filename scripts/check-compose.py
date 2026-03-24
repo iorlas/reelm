@@ -125,6 +125,17 @@ def lint_compose(path: Path) -> list[str]:
             if port_str.startswith("0.0.0.0:"):
                 errors.append(f"{prefix}: binds to 0.0.0.0 ({port_str}) — Docker bypasses UFW. Use ${{TAILSCALE_IP}} for private or remove for internal-only")
 
+    # ── configs: with content: — broken update behavior ──
+    configs = data.get("configs", {})
+    if configs and isinstance(configs, dict):
+        for cfg_name, cfg in configs.items():
+            if isinstance(cfg, dict) and "content" in cfg:
+                errors.append(
+                    f"configs.{cfg_name}: uses inline 'content:' — container will silently keep stale config after redeploy. "
+                    "Docker Compose does not detect content changes in configs (bug #11900, closed 'not planned'). "
+                    "Use 'command: sh -c' with heredoc to generate config at startup, or env vars."
+                )
+
     # ── Env interpolation: bare $ in compose (not $$ or ${) ──
     # Scan raw content for patterns like $2a$12$ (bcrypt) that should be $$
     for i, line in enumerate(content.splitlines(), 1):

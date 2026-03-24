@@ -388,6 +388,7 @@ def cmd_sync(client: httpx.Client, args: argparse.Namespace) -> None:
         "composeId": args.compose_id,
         "composeFile": compose_content,
         "sourceType": "raw",
+        "composePath": "./docker-compose.yml",  # Prevent stale path from github sourceType
     }
 
     env_content = _resolve_env(args, compose_content)
