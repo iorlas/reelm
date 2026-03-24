@@ -203,7 +203,7 @@ def get_problem_containers(containers: list[dict]) -> list[dict]:
 def show_problem_logs(base_url: str, token: str, containers: list[dict], app_name: str) -> None:
     """Show logs for unhealthy/failed containers only."""
     problem = [c for c in get_problem_containers(containers)
-               if c.get("state") != "running" or "(healthy)" not in c.get("status", "")]
+               if not _container_ok(c) and not _is_one_shot(c)]
     if not problem:
         return
 
@@ -237,6 +237,40 @@ def show_deploy_log(base_url: str, token: str, log_path: str) -> None:
         _error(f"  {line.rstrip()[:200]}")
 
 
+def _is_one_shot(c: dict) -> bool:
+    """Detect one-shot containers (migrations, init tasks) that exit successfully."""
+    status = c.get("status", "")
+    state = c.get("state", "")
+    # Exited with code 0 = successful one-shot
+    return state == "exited" and "Exited (0)" in status
+
+
+def _container_ok(c: dict) -> bool:
+    """Check if a container is in an acceptable state."""
+    state = c.get("state", "")
+    status = c.get("status", "")
+
+    if _is_one_shot(c):
+        return True
+    if state == "running" and "(healthy)" in status:
+        return True
+    if state == "running" and "(health:" not in status.lower():
+        # Running without healthcheck defined — acceptable
+        return True
+    return False
+
+
+def _container_converging(c: dict) -> bool:
+    """Check if a container is still starting up (not yet failed)."""
+    state = c.get("state", "")
+    status = c.get("status", "")
+    if state == "running" and "(health: starting)" in status.lower():
+        return True
+    if state == "restarting":
+        return True
+    return False
+
+
 def verify_container_health(client: httpx.Client, app_name: str, timeout: int = 120) -> bool:
     """Poll containers until all are healthy or timeout. Returns True if healthy."""
     max_attempts = timeout // 5
@@ -247,24 +281,34 @@ def verify_container_health(client: httpx.Client, app_name: str, timeout: int = 
             time.sleep(5)
             continue
 
-        all_healthy = True
+        all_ok = all(_container_ok(c) for c in containers)
+        still_converging = any(_container_converging(c) for c in containers)
+
+        # Build status line — skip one-shot containers for readability
+        parts = []
         for c in containers:
-            state = c.get("state", "unknown")
+            name = c.get("name", "?").replace(app_name + "-", "").rstrip("-1234567890")
+            state = c.get("state", "?")
             status = c.get("status", "")
+            if _is_one_shot(c):
+                continue  # don't clutter output with completed migrations
+            if "(healthy)" in status:
+                parts.append(f"{name}=ok")
+            elif "(health: starting)" in status.lower():
+                parts.append(f"{name}=starting")
+            elif state == "restarting":
+                parts.append(f"{name}=restarting")
+            else:
+                parts.append(f"{name}={state}")
 
-            if state != "running":
-                all_healthy = False
-            elif "(healthy)" not in status and "(health:" in status.lower():
-                all_healthy = False
+        print(f"  [health {i}/{max_attempts}] {', '.join(parts)}")
 
-        states = ", ".join(
-            f"{c.get('name','?').replace(app_name + '-', '').rstrip('-1234567890')}={c.get('state','?')}"
-            for c in containers
-        )
-        print(f"  [health {i}/{max_attempts}] {states}")
-
-        if all_healthy and containers:
+        if all_ok and containers:
             return True
+
+        if not still_converging:
+            # Nothing is starting — if not all ok, it won't get better
+            return False
 
         time.sleep(5)
 
