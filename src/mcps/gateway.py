@@ -14,6 +14,7 @@ from fastmcp.server import create_proxy
 from fastmcp.server.auth.providers.google import GoogleProvider
 
 from mcps.servers.memory import mcp as memory_mcp
+from mcps.servers.skills import mcp as skills_mcp
 
 # Google OAuth config from environment
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
@@ -46,7 +47,9 @@ gateway = FastMCP(
         "Use reelm_memory tools to store and recall shared household media context — "
         "what the household has watched, wants to watch, quality preferences, content rules. "
         "This is NOT your personal memory — it persists across all AI clients "
-        "(Claude, ChatGPT, Copilot) and is shared by all household members."
+        "(Claude, ChatGPT, Copilot) and is shared by all household members. "
+        "Use reelm_skills tools to access thinking skills (brainstorming, metacognition). "
+        "Call list_skills to see available skills, then get_skill to load one into this conversation."
     ),
     auth=auth,
 )
@@ -57,6 +60,7 @@ gateway.mount(create_proxy(JACKETT_URL), namespace="reelm_search")
 gateway.mount(create_proxy(STORAGE_URL), namespace="reelm_storage")
 gateway.mount(create_proxy(TMDB_URL), namespace="reelm_media")
 gateway.mount(memory_mcp, namespace="reelm_memory")
+gateway.mount(skills_mcp, namespace="reelm_skills")
 
 # --- ASGI app for uvicorn ---
 app = gateway.http_app(path="/mcp")

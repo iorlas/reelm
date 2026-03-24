@@ -5,6 +5,7 @@ from fastmcp import Client, FastMCP
 
 from mcps.servers.jackett import mcp as jackett_mcp
 from mcps.servers.memory import mcp as memory_mcp
+from mcps.servers.skills import mcp as skills_mcp
 from mcps.servers.storage import mcp as storage_mcp
 from mcps.servers.tmdb import mcp as tmdb_mcp
 from mcps.servers.transmission import mcp as transmission_mcp
@@ -15,6 +16,7 @@ BACKENDS = {
     "reelm_storage": storage_mcp,
     "reelm_media": tmdb_mcp,
     "reelm_memory": memory_mcp,
+    "reelm_skills": skills_mcp,
 }
 
 
@@ -48,6 +50,7 @@ async def test_gateway_lists_all_tools(gateway):
     assert "reelm_storage_list_dir" in tool_names
     assert "reelm_media_search_media" in tool_names
     assert "reelm_memory_remember" in tool_names
+    assert "reelm_skills_list_skills" in tool_names
 
 
 @pytest.mark.unit
@@ -58,5 +61,5 @@ async def test_gateway_tool_count(gateway):
     async with client:
         tools = await client.list_tools()
 
-    # transmission: 8, jackett: 2, storage: 4, tmdb: 3, memory: 4 = 21 total
-    assert len(tools) == 21, f"Expected 21 tools, got {len(tools)}: {[t.name for t in tools]}"
+    # transmission: 8, jackett: 2, storage: 4, tmdb: 3, memory: 4, skills: 2 = 23 total
+    assert len(tools) == 23, f"Expected 23 tools, got {len(tools)}: {[t.name for t in tools]}"
