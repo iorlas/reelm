@@ -65,7 +65,6 @@ jobs:
           export TRANSMISSION_USER=x TRANSMISSION_PASS=x
           export JACKETT_API_KEY=x WEBDAV_URL=x WEBDAV_USER=x WEBDAV_PASS=x TMDB_API_KEY=x
           export GOOGLE_CLIENT_ID=x GOOGLE_CLIENT_SECRET=x
-          # OPENMEMORY vars removed — mem0 services disabled
           docker compose -f docker-compose.prod.yml config --quiet
 
       - name: Set up Docker Buildx
@@ -125,7 +124,6 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          # OPENMEMORY vars removed — mem0 services disabled (arm64-only image)
         run: |
           mkdir -p ~/.config/dokploy
           echo "${DOKPLOY_AUTH_TOKEN}" > ~/.config/dokploy/token
