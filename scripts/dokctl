@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper to run dokctl.py as a uv inline script (resolves its own deps).
+# Usage: scripts/dokctl deploy <id> docker-compose.prod.yml
+set -euo pipefail
+exec uv run --script "$(dirname "$0")/dokctl.py" "$@"
