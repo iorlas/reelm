@@ -130,4 +130,4 @@ jobs:
           echo "${DOKPLOY_URL}" > ~/.config/dokploy/url
 
           export IMAGE_TAG="main-$(echo '${{ github.sha }}' | cut -c1-7)"
-          scripts/dokctl deploy "${DOKPLOY_COMPOSE_ID}" docker-compose.prod.yml
+          scripts/dokctl.py deploy "${DOKPLOY_COMPOSE_ID}" docker-compose.prod.yml

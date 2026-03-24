@@ -1,4 +1,7 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env bash
+"true" '''\'
+exec uv run --script "$0" "$@"
+'''
 # /// script
 # requires-python = ">=3.12"
 # dependencies = ["httpx>=0.28,<1.0", "websockets>=15"]
@@ -7,7 +10,6 @@
 
 Encodes known API workarounds so AI agents (and humans) don't need to.
 """
-from __future__ import annotations
 
 import argparse
 import asyncio
