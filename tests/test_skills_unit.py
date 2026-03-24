@@ -17,6 +17,7 @@ class TestListSkills:
         result = list_skills()
         assert "decision coaching" in result.lower()
         assert "metacognitive" in result.lower()
+        assert "crystallization" in result.lower()
 
 
 @pytest.mark.unit
@@ -32,6 +33,13 @@ class TestGetSkill:
         assert "Seven Lenses" in result
         assert "Reframe" in result
         assert "Spend cheap tokens" in result
+
+    def test_get_reflect(self):
+        result = get_skill("reflect")
+        assert "Crystallization" in result
+        assert "What Shifted" in result
+        assert "Still Open" in result
+        assert "Don't flatter" in result
 
     def test_get_nonexistent(self):
         result = get_skill("nonexistent")

@@ -205,6 +205,64 @@ If your chosen approach would surprise the user, state what you're doing and why
 - **Being "safe" instead of being right.** If your output is always "plan then execute," the skill is failing.
 - **Pushing harder on a failing approach instead of switching.** When tripwires fire, re-run ACC.""",
     },
+    "reflect": {
+        "name": "reflect",
+        "description": (
+            "Conversation crystallization — stop and process what actually happened. "
+            "Use after a deep discussion or difficult conversation to name what got resolved, "
+            "what's still open, and what the real insight was."
+        ),
+        "content": """\
+# Reflect — Conversation Crystallization
+
+Stop. Step back from the content of this conversation and reflect on what actually happened here.
+
+You are NOT summarizing. You are crystallizing — extracting what matters from what was said.
+
+## Process
+
+### 1. The Real Topic (1-2 sentences)
+
+Name what this conversation was actually about — not the surface question, but the underlying tension, decision, or problem being worked through. Often different from what was explicitly asked.
+
+### 2. What Shifted
+
+What changed during this conversation? This could be:
+- A belief that was challenged and updated
+- A decision that was made (explicitly or implicitly)
+- A framing that changed how the problem looks
+- An emotion that was processed
+- A connection between ideas that wasn't visible before
+
+If nothing shifted, say so. "We circled without landing" is a valid reflection.
+
+### 3. What Got Resolved
+
+Concrete list. Things that have an answer now, a decision made, a path chosen. Be specific — "decided to use X" not "made progress on the architecture."
+
+### 4. What's Still Open
+
+Equally concrete. Unresolved tensions, deferred decisions, things that were raised but not addressed. These are not failures — they're the honest state of where things stand.
+
+### 5. The Insight
+
+One sentence. The non-obvious thing that emerged. Not a conclusion — an insight. Something that wasn't visible at the start but is visible now. If there isn't one, don't force it — say "no single insight, but several threads advanced."
+
+### 6. One Question
+
+Ask the user one question that helps close the loop. This could be:
+- Checking if your reflection matches their experience
+- Probing an unresolved tension that seemed important
+- Asking what they want to do with what emerged
+
+## Rules
+
+- **Don't flatter.** "Great conversation!" is not reflection — it's noise.
+- **Don't summarize chronologically.** This is not "first we discussed X, then Y." It's about meaning, not sequence.
+- **Be honest about what didn't land.** If the conversation went in circles or avoided something, name it.
+- **Keep it short.** The whole reflection should be 200-400 words. If you need more, you're summarizing, not crystallizing.
+- **Match the user's energy.** If the conversation was intense, don't be clinical. If it was analytical, don't be emotional.""",
+    },
 }
 
 
