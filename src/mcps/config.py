@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     transmission_pass: str | None = None
     transmission_ssl: bool = False
 
+    # Download categories (subdirectories under Transmission's download dir)
+    download_categories: set[str] = {"tv", "movies", "music", "other"}
+
     # OpenViking (default localhost for local dev; overridden via OPENVIKING_URL env var in production)
     openviking_url: str = "http://localhost:1933"
 

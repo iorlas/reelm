@@ -85,7 +85,7 @@
   },
   {
     "name": "get_torrent",
-    "description": "Get torrent details by ID.",
+    "description": "Get torrent details by ID. Resolves magnet link if not already available.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {

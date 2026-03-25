@@ -4,12 +4,14 @@ from typing import Annotated, Literal
 import httpx
 import xmltodict
 from fastmcp import FastMCP
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from mcps.config import settings
 from mcps.shared.pagination import DEFAULT_LIMIT, TsvList, paginate
 from mcps.shared.query import apply_query, project, to_tsv
 from mcps.shared.schema import optimize_tool_schemas
+from mcps.shared.torrent import torrent_bytes_to_magnet
 
 mcp = FastMCP("Jackett")
 
@@ -205,16 +207,44 @@ def search_torrents(
     return TsvList(data=to_tsv(projected), total=total, offset=offset, has_more=has_more)
 
 
+def _ensure_magnet(detail: TorrentDetail) -> TorrentDetail:
+    """Best-effort resolve magnet link for a torrent detail.
+
+    If magneturl is already set, return as-is. Otherwise, try to fetch the
+    download link URL: if redirect leads to magnet: URL, use that; if response
+    is 200 with content, convert torrent bytes to magnet via torrent_bytes_to_magnet.
+    On any failure, return unchanged.
+    """
+    if detail.magneturl:
+        return detail
+
+    try:
+        resp = httpx.get(detail.link, follow_redirects=True, timeout=30.0)
+        if resp.url and str(resp.url).startswith("magnet:"):
+            detail = detail.model_copy(update={"magneturl": str(resp.url)})
+            _cache[detail.id] = detail
+            return detail
+        if resp.status_code == 200 and resp.content:
+            magnet = torrent_bytes_to_magnet(resp.content)
+            detail = detail.model_copy(update={"magneturl": magnet})
+            _cache[detail.id] = detail
+            return detail
+    except (httpx.HTTPError, OSError, ValueError):
+        logger.debug(f"jackett.ensure_magnet_failed id={detail.id} link={detail.link}")
+
+    return detail
+
+
 @mcp.tool
 def get_torrent(
     torrent_id: Annotated[str, Field(description="Torrent ID (jkt_xxxxxxxx)")],
 ) -> TorrentDetail:
-    """Get torrent details by ID."""
+    """Get torrent details by ID. Resolves magnet link if not already available."""
     if not torrent_id.startswith(ID_PREFIX):
         raise ValueError(f"Invalid torrent ID format: {torrent_id}. Expected jkt_xxxxxxxx from search results.")
     if torrent_id not in _cache:
         raise ValueError(f"Unknown torrent ID: {torrent_id}. Search first.")
-    return _cache[torrent_id]
+    return _ensure_magnet(_cache[torrent_id])
 
 
 optimize_tool_schemas(mcp)

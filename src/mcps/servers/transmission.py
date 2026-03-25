@@ -229,12 +229,24 @@ def list_torrents(
 def add_torrent(
     url: Annotated[
         str,
-        Field(description="Magnet link (preferred) or download URL. Use magneturl from search when available."),
+        Field(description="Magnet link (strongly preferred). Get magneturl from get_torrent. Fallback: download URL."),
     ],
-    download_dir: Annotated[str | None, Field(description="Download directory")] = None,
+    category: Annotated[
+        str | None,
+        Field(description="Download subdirectory: tv, movies, music, other. Default: root download dir."),
+    ] = None,
 ) -> Torrent:
-    """Add torrent by URL or magnet."""
+    """Add torrent by magnet link. ALWAYS use magneturl from get_torrent — it's more reliable than download URLs.
+    If download URL fails with 'expired', search again for fresh results."""
     client = get_client()
+    download_dir = None
+    if category:
+        valid = settings.download_categories
+        if category not in valid:
+            msg = f"Invalid category '{category}'. Valid: {', '.join(sorted(valid))}"
+            raise ValueError(msg)
+        session = client.get_session()
+        download_dir = f"{session.download_dir.rstrip('/')}/{category}"
     resolved_url = _resolve_url(url)
     t = client.add_torrent(resolved_url, download_dir=download_dir)
     full_torrent = client.get_torrent(t.id)

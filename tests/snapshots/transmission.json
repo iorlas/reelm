@@ -51,17 +51,17 @@
   },
   {
     "name": "add_torrent",
-    "description": "Add torrent by URL or magnet.",
+    "description": "Add torrent by magnet link. ALWAYS use magneturl from get_torrent \u2014 it's more reliable than download URLs.\nIf download URL fails with 'expired', search again for fresh results.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "url": {
-          "description": "Magnet link (preferred) or download URL. Use magneturl from search when available.",
+          "description": "Magnet link (strongly preferred). Get magneturl from get_torrent. Fallback: download URL.",
           "type": "string"
         },
-        "download_dir": {
+        "category": {
           "default": null,
-          "description": "Download directory",
+          "description": "Download subdirectory: tv, movies, music, other. Default: root download dir.",
           "type": "string"
         }
       },
