@@ -175,7 +175,7 @@ class TestAddTorrent:
         assert result.id == 10
         assert result.name == "Added Torrent"
 
-    def test_add_torrent_url_resolves_bytes(self, mocker):
+    def test_add_torrent_url_with_category(self, mocker):
         url = "http://jackett/dl/123.torrent"
         torrent_bytes = b"torrent-file-content"
         added = _make_torrent(id=11, name="File Torrent")
@@ -187,10 +187,18 @@ class TestAddTorrent:
         mocker.patch("mcps.servers.transmission.get_client", return_value=client)
         mocker.patch("mcps.servers.transmission._resolve_url", return_value=torrent_bytes)
 
-        result = add_torrent(url=url, download_dir="/custom")
+        result = add_torrent(url=url, category="tv")
 
-        client.add_torrent.assert_called_once_with(torrent_bytes, download_dir="/custom")
+        client.add_torrent.assert_called_once_with(torrent_bytes, download_dir="/downloads/tv")
         assert result.id == 11
+
+    def test_invalid_category_raises(self, mocker):
+        client = _mock_client()
+        mocker.patch("mcps.servers.transmission.get_client", return_value=client)
+        mocker.patch("mcps.servers.transmission._resolve_url", return_value="magnet:?xt=urn:btih:abc")
+
+        with pytest.raises(ValueError, match="Invalid category 'badcat'"):
+            add_torrent(url="magnet:?xt=urn:btih:abc", category="badcat")
 
 
 @pytest.mark.unit

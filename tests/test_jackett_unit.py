@@ -1,9 +1,13 @@
+from unittest.mock import MagicMock, patch
+
+import httpx
 import pytest
 
 from mcps.servers.jackett import (
     TorrentDetail,
     TorrentSummary,
     _cache,
+    _ensure_magnet,
     _extract_torznab_attrs,
     _make_id,
     _parse_torznab_response,
@@ -238,6 +242,11 @@ class TestGetTorrent:
         with pytest.raises(ValueError, match="Invalid torrent ID format"):
             get_torrent("nonexistent")
 
+    def test_raises_for_missing_cached_id_mentions_search_torrents(self):
+        _cache.clear()
+        with pytest.raises(ValueError, match="search_torrents"):
+            get_torrent("jkt_00000000")
+
 
 SECOND_ITEM_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
@@ -297,3 +306,73 @@ class TestAltQueriesDedup:
         header = result.data.split("\n")[0]
         assert "title" in header
         assert "seeders" in header
+
+
+def _make_detail(magneturl=None, link="https://example.com/dl/123.torrent"):
+    return TorrentDetail(
+        id="jkt_test1234",
+        title="Test",
+        link=link,
+        size=1024,
+        magneturl=magneturl,
+    )
+
+
+@pytest.mark.unit
+class TestEnsureMagnet:
+    def test_already_has_magnet_returns_unchanged(self):
+        detail = _make_detail(magneturl="magnet:?xt=urn:btih:abc123")
+        result = _ensure_magnet(detail)
+        assert result.magneturl == "magnet:?xt=urn:btih:abc123"
+
+    def test_redirect_to_magnet_url(self):
+        detail = _make_detail()
+        magnet_url = "magnet:?xt=urn:btih:redirected"
+
+        mock_resp = MagicMock()
+        mock_resp.url = httpx.URL(magnet_url)
+        mock_resp.status_code = 200
+        mock_resp.content = b""
+
+        with patch("mcps.servers.jackett.httpx.get", return_value=mock_resp):
+            result = _ensure_magnet(detail)
+
+        assert result.magneturl == magnet_url
+
+    def test_torrent_bytes_response_converts_to_magnet(self):
+        import bencodepy
+
+        detail = _make_detail()
+        info = {b"name": b"test", b"piece length": 262144, b"length": 1024, b"pieces": b"\x00" * 20}
+        torrent_bytes = bencodepy.encode({b"info": info})
+
+        mock_resp = MagicMock()
+        mock_resp.url = httpx.URL("https://example.com/dl/123.torrent")
+        mock_resp.status_code = 200
+        mock_resp.content = torrent_bytes
+
+        with patch("mcps.servers.jackett.httpx.get", return_value=mock_resp):
+            result = _ensure_magnet(detail)
+
+        assert result.magneturl is not None
+        assert result.magneturl.startswith("magnet:?xt=urn:btih:")
+
+    def test_network_failure_returns_unchanged(self):
+        detail = _make_detail()
+
+        with patch("mcps.servers.jackett.httpx.get", side_effect=httpx.ConnectError("fail")):
+            result = _ensure_magnet(detail)
+
+        assert result.magneturl is None
+
+    def test_empty_link_returns_unchanged(self):
+        detail = TorrentDetail(
+            id="jkt_test1234",
+            title="Test",
+            link="",
+            size=1000,
+        )
+        from mcps.servers.jackett import _ensure_magnet
+
+        result = _ensure_magnet(detail)
+        assert result.magneturl is None

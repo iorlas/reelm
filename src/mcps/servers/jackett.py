@@ -4,12 +4,14 @@ from typing import Annotated, Literal
 import httpx
 import xmltodict
 from fastmcp import FastMCP
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from mcps.config import settings
 from mcps.shared.pagination import DEFAULT_LIMIT, TsvList, paginate
 from mcps.shared.query import apply_query, project, to_tsv
 from mcps.shared.schema import optimize_tool_schemas
+from mcps.shared.torrent import torrent_bytes_to_magnet
 
 mcp = FastMCP("Jackett")
 
@@ -172,7 +174,8 @@ def search_torrents(
     season: Annotated[int | None, Field()] = None,
     episode: Annotated[int | None, Field()] = None,
     categories: Annotated[list[int] | None, Field(description="Category IDs (2000=Movies, 5000=TV)")] = None,
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter; search(@, 'text') for text search")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: seeders > 10, size > 1000000000")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Fields (id auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -198,22 +201,53 @@ def search_torrents(
                 seen_ids.add(item.id)
                 results.append(item)
 
-    filtered = apply_query(results, filter_expr, sort_by, limit=None)
+    filtered = apply_query(results, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     projected = project(paginated, fields)
     return TsvList(data=to_tsv(projected), total=total, offset=offset, has_more=has_more)
+
+
+def _ensure_magnet(detail: TorrentDetail) -> TorrentDetail:
+    """Best-effort resolve magnet link for a torrent detail.
+
+    If magneturl is already set, return as-is. Otherwise, try to fetch the
+    download link URL: if redirect leads to magnet: URL, use that; if response
+    is 200 with content, convert torrent bytes to magnet via torrent_bytes_to_magnet.
+    On any failure, return unchanged.
+    """
+    if detail.magneturl:
+        return detail
+
+    if not detail.link:
+        return detail
+
+    try:
+        resp = httpx.get(detail.link, follow_redirects=True, timeout=30.0)
+        if resp.url and str(resp.url).startswith("magnet:"):
+            detail = detail.model_copy(update={"magneturl": str(resp.url)})
+            _cache[detail.id] = detail
+            return detail
+        if resp.status_code == 200 and resp.content:
+            magnet = torrent_bytes_to_magnet(resp.content)
+            detail = detail.model_copy(update={"magneturl": magnet})
+            _cache[detail.id] = detail
+            return detail
+    except (httpx.HTTPError, OSError, ValueError):
+        logger.debug(f"jackett.ensure_magnet_failed id={detail.id} link={detail.link}")
+
+    return detail
 
 
 @mcp.tool
 def get_torrent(
     torrent_id: Annotated[str, Field(description="Torrent ID (jkt_xxxxxxxx)")],
 ) -> TorrentDetail:
-    """Get torrent details by ID."""
+    """Get torrent details by ID. Resolves magnet link if not already available."""
     if not torrent_id.startswith(ID_PREFIX):
         raise ValueError(f"Invalid torrent ID format: {torrent_id}. Expected jkt_xxxxxxxx from search results.")
     if torrent_id not in _cache:
-        raise ValueError(f"Unknown torrent ID: {torrent_id}. Search first.")
-    return _cache[torrent_id]
+        raise ValueError(f"Unknown torrent ID: {torrent_id}. Search first with search_torrents, then use the ID from results.")
+    return _ensure_magnet(_cache[torrent_id])
 
 
 optimize_tool_schemas(mcp)

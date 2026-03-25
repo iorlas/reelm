@@ -10,13 +10,18 @@
   },
   {
     "name": "list_torrents",
-    "description": "List torrents (TSV). No filter = all.\nFields: name, status, progress, eta, total_size, error_string, download_speed, file_count.\nCRITICAL: downloaded/completed = progress==`100` ONLY.\nNEVER use status for downloaded. status=='downloading' = ACTIVELY in-progress.",
+    "description": "List torrents (TSV). No filter = all.\nFields: name, status, progress, eta, total_size, error_string, download_speed, file_count.\nCRITICAL: downloaded/completed = progress == 100 ONLY.\nNEVER use status for downloaded. status == 'downloading' = ACTIVELY in-progress.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "filter_expr": {
           "default": null,
-          "description": "JMESPath. Downloaded: progress==`100` (NOT status). Active: status=='downloading'. Text: search(@, 'text')",
+          "description": "CEL filter. Examples: progress == 100, status == 'downloading', id == 42",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {
@@ -46,17 +51,17 @@
   },
   {
     "name": "add_torrent",
-    "description": "Add torrent by URL or magnet.",
+    "description": "Add torrent by magnet link. ALWAYS use magneturl from get_torrent \u2014 it's more reliable than download URLs.\nIf download URL fails with 'expired', search again for fresh results.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
         "url": {
-          "description": "Magnet link (preferred) or download URL. Use magneturl from search when available.",
+          "description": "Magnet link (strongly preferred). Get magneturl from get_torrent. Fallback: download URL.",
           "type": "string"
         },
-        "download_dir": {
+        "category": {
           "default": null,
-          "description": "Download directory",
+          "description": "Download subdirectory: tv, movies, music, other. Default: root download dir.",
           "type": "string"
         }
       },
@@ -135,7 +140,12 @@
         },
         "filter_expr": {
           "default": null,
-          "description": "JMESPath filter; search(@, 'text') for text search",
+          "description": "CEL filter. Examples: size > 1000000, name.contains('.mkv')",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {

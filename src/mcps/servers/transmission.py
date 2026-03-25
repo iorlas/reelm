@@ -115,14 +115,21 @@ def _resolve_url(url: str) -> str | bytes:
             if location.startswith("magnet:"):
                 return location
         if resp.status_code == 404:
-            raise RuntimeError("Torrent download link expired (Jackett cache cleared). Please search again and retry with a fresh result.")
+            raise RuntimeError(
+                "Torrent download link expired (Jackett cache cleared)."
+                " Action: search again with search_torrents, then use get_torrent to get a fresh magnet link."
+            )
         # Got a .torrent file — return raw bytes for Transmission
         if resp.status_code == 200 and resp.content:
             return resp.content
     except (httpx.HTTPError, OSError) as e:
-        raise RuntimeError(f"Failed to download torrent from {url}: {e}") from e
+        raise RuntimeError(
+            f"Failed to download torrent from {url}: {e}. Action: use get_torrent to get a magnet link instead of the download URL."
+        ) from e
     raise RuntimeError(
-        f"Unexpected response from {url}: status={resp.status_code}, content_type={resp.headers.get('content-type', 'unknown')}"
+        f"Unexpected response from {url}:"
+        f" status={resp.status_code}, content_type={resp.headers.get('content-type', 'unknown')}."
+        " Action: use get_torrent to get a magnet link instead of the download URL."
     )
 
 
@@ -199,8 +206,9 @@ def get_free_space() -> DiskUsage:
 def list_torrents(
     filter_expr: Annotated[
         str | None,
-        Field(description="JMESPath. Downloaded: progress==`100` (NOT status). Active: status=='downloading'. Text: search(@, 'text')"),
+        Field(description="CEL filter. Examples: progress == 100, status == 'downloading', id == 42"),
     ] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[
         list[str] | None,
         Field(
@@ -214,11 +222,11 @@ def list_torrents(
 ) -> TsvList:
     """List torrents (TSV). No filter = all.
     Fields: name, status, progress, eta, total_size, error_string, download_speed, file_count.
-    CRITICAL: downloaded/completed = progress==`100` ONLY.
-    NEVER use status for downloaded. status=='downloading' = ACTIVELY in-progress."""
+    CRITICAL: downloaded/completed = progress == 100 ONLY.
+    NEVER use status for downloaded. status == 'downloading' = ACTIVELY in-progress."""
     torrents = get_client().get_torrents()
     items = [_torrent_to_model(t) for t in torrents]
-    filtered = apply_query(items, filter_expr, sort_by, limit=None)
+    filtered = apply_query(items, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     result = project(paginated, fields)
     return TsvList(data=to_tsv(result), total=total, offset=offset, has_more=has_more)
@@ -228,12 +236,24 @@ def list_torrents(
 def add_torrent(
     url: Annotated[
         str,
-        Field(description="Magnet link (preferred) or download URL. Use magneturl from search when available."),
+        Field(description="Magnet link (strongly preferred). Get magneturl from get_torrent. Fallback: download URL."),
     ],
-    download_dir: Annotated[str | None, Field(description="Download directory")] = None,
+    category: Annotated[
+        str | None,
+        Field(description="Download subdirectory: tv, movies, music, other. Default: root download dir."),
+    ] = None,
 ) -> Torrent:
-    """Add torrent by URL or magnet."""
+    """Add torrent by magnet link. ALWAYS use magneturl from get_torrent — it's more reliable than download URLs.
+    If download URL fails with 'expired', search again for fresh results."""
     client = get_client()
+    download_dir = None
+    if category:
+        valid = settings.download_categories
+        if category not in valid:
+            msg = f"Invalid category '{category}'. Valid: {', '.join(sorted(valid))}"
+            raise ValueError(msg)
+        session = client.get_session()
+        download_dir = f"{session.download_dir.rstrip('/')}/{category}"
     resolved_url = _resolve_url(url)
     t = client.add_torrent(resolved_url, download_dir=download_dir)
     full_torrent = client.get_torrent(t.id)
@@ -272,7 +292,8 @@ def resume_torrent(
 def list_files(
     torrent_id: Annotated[int, Field()],
     depth: Annotated[int | None, Field(description="Depth. 1=top, 2=sub, None=all")] = 1,
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter; search(@, 'text') for text search")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: size > 1000000, name.contains('.mkv')")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Fields (index auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -286,7 +307,7 @@ def list_files(
         files.append(TorrentFile(index=i, name=f.name, size=f.size, completed=f.completed, priority=prio))
 
     entries = _aggregate_by_depth(files, depth) if depth else files
-    filtered = apply_query(entries, filter_expr, sort_by, limit=None)
+    filtered = apply_query(entries, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     result = project(paginated, fields)
 

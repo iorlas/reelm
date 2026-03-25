@@ -17,7 +17,7 @@ lint:
 	@uv run python scripts/check-json.py
 	@uv run python scripts/check-file-length.py
 	@uv run python scripts/check-compose.py
-	@uv run pip-audit
+	@uv run pip-audit --ignore-vuln CVE-2026-4539  # pygments: no fix available yet
 	@conftest test Dockerfile --parser dockerfile -p .harness/policy/dockerfile/ --all-namespaces
 	@conftest test docker-compose.prod.yml -p .harness/policy/compose/ --all-namespaces -d .harness/data.json
 	@conftest test pyproject.toml -p .harness/policy/python/ --all-namespaces

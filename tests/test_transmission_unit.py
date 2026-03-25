@@ -415,5 +415,26 @@ class TestResolveUrl:
     def test_raises_on_exception(self, mocker):
         mocker.patch("httpx.get", side_effect=httpx.ConnectError("Network error"))
 
-        with pytest.raises(RuntimeError, match="Failed to download torrent"):
+        with pytest.raises(RuntimeError, match="magnet link"):
             _resolve_url("http://jackett/dl/fail")
+
+    def test_raises_404_with_actionable_message(self, mocker):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.headers = {}
+        mock_resp.url = None
+        mocker.patch("httpx.get", return_value=mock_resp)
+
+        with pytest.raises(RuntimeError, match="search again"):
+            _resolve_url("http://jackett/dl/expired")
+
+    def test_raises_unexpected_response_with_actionable_message(self, mocker):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+        mock_resp.headers = {"content-type": "text/html"}
+        mock_resp.content = b""
+        mock_resp.url = None
+        mocker.patch("httpx.get", return_value=mock_resp)
+
+        with pytest.raises(RuntimeError, match="magnet link"):
+            _resolve_url("http://jackett/dl/bad")

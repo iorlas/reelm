@@ -29,7 +29,12 @@
         },
         "filter_expr": {
           "default": null,
-          "description": "JMESPath filter; search(@, 'text') for text search",
+          "description": "CEL filter. Examples: vote_average > 7.0, media_type == 'movie'",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {
@@ -88,7 +93,12 @@
         },
         "filter_expr": {
           "default": null,
-          "description": "JMESPath filter; search(@, 'text') for text search",
+          "description": "CEL filter. Examples: vote_average > 7.0, release_date > '2024'",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {
@@ -127,7 +137,12 @@
       "properties": {
         "filter_expr": {
           "default": null,
-          "description": "JMESPath filter; search(@, 'text') for text search",
+          "description": "CEL filter. Examples: name.contains('Action')",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {

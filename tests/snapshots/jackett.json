@@ -47,7 +47,12 @@
         },
         "filter_expr": {
           "default": null,
-          "description": "JMESPath filter; search(@, 'text') for text search",
+          "description": "CEL filter. Examples: seeders > 10, size > 1000000000",
+          "type": "string"
+        },
+        "search": {
+          "default": null,
+          "description": "Fuzzy text search across all fields (handles Cyrillic, transliteration)",
           "type": "string"
         },
         "fields": {
@@ -80,7 +85,7 @@
   },
   {
     "name": "get_torrent",
-    "description": "Get torrent details by ID.",
+    "description": "Get torrent details by ID. Resolves magnet link if not already available.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {

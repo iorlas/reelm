@@ -1,12 +1,10 @@
 import re
 from typing import overload
 
-import jmespath
 from anyascii import anyascii
-from jmespath import Options, functions
+from cel import evaluate
 from pydantic import BaseModel
 
-_BARE_NUMBER = re.compile(r"(==|!=|>=|<=|>|<)\s*(\d+(?:\.\d+)?)\b(?!`)")
 _NON_ALNUM = re.compile(r"[^a-z0-9]")
 
 
@@ -14,29 +12,23 @@ def _normalize(text: str) -> str:
     return _NON_ALNUM.sub("", anyascii(text).lower())
 
 
-def _quote_numbers(expr: str) -> str:
-    """Wrap bare numeric literals in JMESPath backticks so `x==100` becomes `x==`100``."""
-    return _BARE_NUMBER.sub(r"\1`\2`", expr)
-
-
-class CustomFunctions(functions.Functions):
-    @functions.signature({"types": ["object"]}, {"types": ["string"]})
-    def _func_search(self, obj, needle):
-        """Normalized search across all string fields (handles Cyrillic, dots, etc.)."""
-        needle_norm = _normalize(needle)
-        for v in obj.values():
-            if isinstance(v, str) and needle_norm in _normalize(v):
-                return True
-        return False
+def _fuzzy_match(d: dict, needle: str) -> bool:
+    """Normalized search across all string values in a dict."""
+    needle_norm = _normalize(needle)
+    for v in d.values():
+        if isinstance(v, str) and needle_norm in _normalize(v):
+            return True
+    return False
 
 
 def apply_query[T: BaseModel](
     items: list[T],
     filter_expr: str | None = None,
+    search: str | None = None,
     sort_by: str | None = None,
     limit: int | None = None,
 ) -> list[T]:
-    """Apply JMESPath filter, sorting, and limit. Returns original models."""
+    """Apply CEL filter, fuzzy search, sorting, and limit. Returns original models."""
     if not items:
         return items
 
@@ -50,11 +42,15 @@ def apply_query[T: BaseModel](
             d["_idx"] = i
         key_field = "_idx"
 
+    if search:
+        data = [d for d in data if _fuzzy_match(d, search)]
+
     if filter_expr:
-        filter_expr = _quote_numbers(filter_expr)
-        expr = filter_expr if filter_expr.startswith("[") else f"[?{filter_expr}]"
-        opts = Options(custom_functions=CustomFunctions())
-        data = jmespath.search(expr, data, options=opts) or []
+        try:
+            data = [d for d in data if evaluate(filter_expr, d)]
+        except Exception as e:
+            msg = f"Invalid filter expression: {filter_expr!r}. Use CEL syntax, e.g. status == 'downloading', progress > 50. Error: {e}"
+            raise ValueError(msg) from e
 
     if sort_by:
         desc = sort_by.startswith("-")

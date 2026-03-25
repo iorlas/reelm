@@ -137,7 +137,8 @@ def search_media(
     imdb_id: Annotated[str | None, Field(description="IMDB ID (tt0111161)")] = None,
     media_type: Annotated[Literal["movie", "tv"] | None, Field()] = None,
     year: Annotated[int | None, Field(description="Release year")] = None,
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter; search(@, 'text') for text search")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: vote_average > 7.0, media_type == 'movie'")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Fields (id auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -161,15 +162,15 @@ def search_media(
             items.append(_tv_to_media(tv, alt))
     else:
         assert query is not None  # noqa: S101 — guard for type narrowing
-        search = tmdb.Search()
+        tmdb_search = tmdb.Search()
         if media_type != "tv":
-            movies = search.movie(query=query, year=year).get("results", [])
+            movies = tmdb_search.movie(query=query, year=year).get("results", [])
             items.extend(_movie_to_media(Movie.model_validate(m)) for m in movies)
         if media_type != "movie":
-            tv_shows = search.tv(query=query)["results"]
+            tv_shows = tmdb_search.tv(query=query)["results"]
             items.extend(_tv_to_media(TvShow.model_validate(t)) for t in tv_shows)
 
-    filtered = apply_query(items, filter_expr, sort_by, limit=None)
+    filtered = apply_query(items, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     projected = project(paginated, fields)
     return MediaList(results=projected, total=total, offset=offset, has_more=has_more)
@@ -183,7 +184,8 @@ def discover_movies(
     movie_id: Annotated[int | None, Field(description="TMDB movie ID")] = None,
     genre_id: Annotated[int | None, Field(description="TMDB genre ID")] = None,
     page: Annotated[int, Field()] = 1,
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter; search(@, 'text') for text search")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: vote_average > 7.0, release_date > '2024'")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Fields (id auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -201,7 +203,7 @@ def discover_movies(
         raw = tmdb.Discover().movie(with_genres=genre_id, page=page)["results"]
 
     movies = [Movie.model_validate(m) for m in raw]
-    filtered = apply_query(movies, filter_expr, sort_by, limit=None)
+    filtered = apply_query(movies, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     projected = project(paginated, fields)
     return MovieList(movies=projected, total=total, offset=offset, has_more=has_more)
@@ -209,7 +211,8 @@ def discover_movies(
 
 @mcp.tool
 def list_genres(
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter; search(@, 'text') for text search")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: name.contains('Action')")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Fields (id auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -217,7 +220,7 @@ def list_genres(
     """List movie genres. Fields: name"""
     genres_api = tmdb.Genres()
     genres = [Genre.model_validate(g) for g in genres_api.movie_list()["genres"]]
-    filtered = apply_query(genres, filter_expr, sort_by, limit=None)
+    filtered = apply_query(genres, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, 0)
     projected = project(paginated, fields)
     return GenreList(genres=projected, total=total, offset=0, has_more=has_more)

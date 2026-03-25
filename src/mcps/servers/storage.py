@@ -92,7 +92,8 @@ def _propfind(path: str, depth: int = 1) -> list[FileEntry]:
 @mcp.tool
 def list_dir(
     path: Annotated[str, Field(description="Directory path, e.g. '/' or '/media/movies/'")] = "/",
-    filter_expr: Annotated[str | None, Field(description="JMESPath filter, e.g. is_dir==`true`, search(@, 'avatar')")] = None,
+    filter_expr: Annotated[str | None, Field(description="CEL filter. Examples: is_dir == true, size > 1000000")] = None,
+    search: Annotated[str | None, Field(description="Fuzzy text search across all fields (handles Cyrillic, transliteration)")] = None,
     fields: Annotated[list[str] | None, Field(description="Columns to show (name auto-incl.)")] = None,
     sort_by: Annotated[str | None, Field(description="Sort field, - prefix for desc. e.g. -size")] = None,
     limit: Annotated[int, Field()] = DEFAULT_LIMIT,
@@ -101,7 +102,7 @@ def list_dir(
     """List files and directories. Root has: media/ (movies/, tv/, torrents/), Dasha/.
     Fields: name, path, is_dir, size, size_mb."""
     entries = _propfind(path)
-    filtered = apply_query(entries, filter_expr, sort_by, limit=None)
+    filtered = apply_query(entries, filter_expr, search=search, sort_by=sort_by, limit=None)
     paginated, total, has_more = paginate(filtered, limit, offset)
     result = project(paginated, fields)
     return TsvList(data=to_tsv(result), total=total, offset=offset, has_more=has_more)
