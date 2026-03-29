@@ -40,8 +40,12 @@ def _mock_client(**method_responses):
 @pytest.mark.asyncio
 class TestRemember:
     async def test_remember_stores_memory(self):
-        # Two POST calls: temp_upload → resources
-        mock = _mock_client(post=[{"temp_file_id": "abc123"}, {"status": "ok"}])
+        mock = _mock_client(
+            post=[
+                {"status": "ok", "result": {"temp_path": "/app/data/temp/upload/upload_abc.md"}},
+                {"status": "ok", "result": {"status": "success"}},
+            ]
+        )
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             result = await remember("We finished Breaking Bad S5")
 
@@ -49,38 +53,50 @@ class TestRemember:
         assert mock.post.call_count == 2
 
     async def test_remember_with_custom_user_id(self):
-        mock = _mock_client(post=[{"temp_file_id": "abc123"}, {"status": "ok"}])
+        mock = _mock_client(
+            post=[
+                {"status": "ok", "result": {"temp_path": "/app/data/temp/upload/upload_abc.md"}},
+                {"status": "ok", "result": {"status": "success"}},
+            ]
+        )
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             result = await remember("Denis prefers 4K", user_id="denis")
 
         assert "stored" in result.lower()
-        # Second call is the resources API with target URI
         resource_call = mock.post.call_args_list[1]
         body = resource_call.kwargs["json"]
-        assert "viking://user/memories/denis/" in body["to"]
+        assert "viking://resources/memories/denis/" in body["to"]
 
     async def test_remember_returns_uri(self):
-        mock = _mock_client(post=[{"temp_file_id": "abc123"}, {"status": "ok"}])
+        mock = _mock_client(
+            post=[
+                {"status": "ok", "result": {"temp_path": "/app/data/temp/upload/upload_abc.md"}},
+                {"status": "ok", "result": {"status": "success"}},
+            ]
+        )
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             result = await remember("TV supports 4K HDR")
 
-        assert "viking://user/memories/household/" in result
+        assert "viking://resources/memories/household/" in result
 
     async def test_remember_uses_temp_upload(self):
-        mock = _mock_client(post=[{"temp_file_id": "abc123"}, {"status": "ok"}])
+        mock = _mock_client(
+            post=[
+                {"status": "ok", "result": {"temp_path": "/app/data/temp/upload/upload_abc.md"}},
+                {"status": "ok", "result": {"status": "success"}},
+            ]
+        )
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             await remember("test content")
 
-        # First call is temp_upload (multipart)
         upload_call = mock.post.call_args_list[0]
         assert "/api/v1/resources/temp_upload" in upload_call.args[0]
         assert "files" in upload_call.kwargs
 
-        # Second call is resources API
         resource_call = mock.post.call_args_list[1]
         assert "/api/v1/resources" in resource_call.args[0]
         body = resource_call.kwargs["json"]
-        assert body["temp_file_id"] == "abc123"
+        assert body["temp_path"] == "/app/data/temp/upload/upload_abc.md"
         assert body["wait"] is True
 
     async def test_remember_handles_api_error(self):
@@ -100,13 +116,11 @@ class TestRecall:
             "result": {
                 "memories": [
                     {
-                        "uri": "viking://user/memories/household/1711234567-abc12345.md",
+                        "uri": "viking://resources/memories/household/1711234567-abc12345.md",
                         "abstract": "We finished Breaking Bad S5",
                         "score": 0.95,
-                        "match_reason": "semantic similarity",
                     }
                 ],
-                "total": 1,
             },
         }
         mock = _mock_client(post=search_response)
@@ -119,17 +133,17 @@ class TestRecall:
         assert "/api/v1/search/find" in call_kwargs.args[0]
 
     async def test_recall_with_custom_user_id(self):
-        search_response = {"status": "ok", "result": {"memories": [], "total": 0}}
+        search_response = {"status": "ok", "result": {"memories": []}}
         mock = _mock_client(post=search_response)
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             await recall("anything", user_id="denis")
 
         call_kwargs = mock.post.call_args
         body = call_kwargs.kwargs["json"]
-        assert "viking://user/memories/denis/" in body.get("target_uri", "")
+        assert "viking://resources/memories/denis/" in body.get("target_uri", "")
 
     async def test_recall_empty_results(self):
-        search_response = {"status": "ok", "result": {"memories": [], "total": 0}}
+        search_response = {"status": "ok", "result": {"memories": []}}
         mock = _mock_client(post=search_response)
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
             result = await recall("something obscure")
@@ -151,18 +165,8 @@ class TestListMemories:
         ls_response = {
             "status": "ok",
             "result": [
-                {
-                    "name": "1711234567-abc12345.md",
-                    "uri": "viking://user/memories/household/1711234567-abc12345.md",
-                    "modTime": "2026-03-24T12:00:00Z",
-                    "isDir": False,
-                },
-                {
-                    "name": "1711234999-def67890.md",
-                    "uri": "viking://user/memories/household/1711234999-def67890.md",
-                    "modTime": "2026-03-24T13:00:00Z",
-                    "isDir": False,
-                },
+                {"name": "1711234567-abc12345.md", "uri": "viking://resources/memories/household/1711234567-abc12345.md", "isDir": False},
+                {"name": "1711234999-def67890.md", "uri": "viking://resources/memories/household/1711234999-def67890.md", "isDir": False},
             ],
         }
         mock = _mock_client(get=ls_response)
@@ -175,8 +179,8 @@ class TestListMemories:
         ls_response = {
             "status": "ok",
             "result": [
-                {"name": "memory.md", "uri": "viking://user/memories/household/memory.md", "isDir": False},
-                {"name": ".archive", "uri": "viking://user/memories/household/.archive/", "isDir": True},
+                {"name": "memory.md", "uri": "viking://resources/memories/household/memory.md", "isDir": False},
+                {"name": ".archive", "uri": "viking://resources/memories/household/.archive/", "isDir": True},
             ],
         }
         mock = _mock_client(get=ls_response)
@@ -205,26 +209,19 @@ class TestListMemories:
 @pytest.mark.asyncio
 class TestForget:
     async def test_forget_archives_memory(self):
-        mv_response = {
-            "status": "ok",
-            "result": {
-                "from": "viking://user/memories/household/1711234567-abc12345.md",
-                "to": "viking://user/archive/household/1711234567-abc12345.md",
-            },
-        }
-        mock = _mock_client(post=mv_response)
+        mock = _mock_client(post={"status": "ok"})
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
-            result = await forget("viking://user/memories/household/1711234567-abc12345.md")
+            result = await forget("viking://resources/memories/household/1711234567-abc12345.md")
 
         assert "archived" in result.lower()
         call_kwargs = mock.post.call_args
         body = call_kwargs.kwargs["json"]
-        assert body["from_uri"] == "viking://user/memories/household/1711234567-abc12345.md"
-        assert "viking://user/archive/household/" in body["to_uri"]
+        assert body["from_uri"] == "viking://resources/memories/household/1711234567-abc12345.md"
+        assert "viking://resources/archive/household/" in body["to_uri"]
 
     async def test_forget_handles_api_error(self):
         mock = _mock_client(post=Exception("Not found"))
         with patch("mcps.servers.memory.httpx.AsyncClient", return_value=mock):
-            result = await forget("viking://user/memories/household/nonexistent.md")
+            result = await forget("viking://resources/memories/household/nonexistent.md")
 
         assert "unavailable" in result.lower()

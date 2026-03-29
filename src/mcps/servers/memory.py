@@ -13,10 +13,15 @@ from fastmcp import FastMCP
 
 from mcps.config import settings
 
-mcp = FastMCP("Reelm Memory")
+mcp = FastMCP("Hub Memory")
 
 _BASE_URL = settings.openviking_url
-_HEADERS: dict[str, str] = {"X-API-Key": settings.openviking_api_key} if settings.openviking_api_key else {}
+_HEADERS: dict[str, str] = {
+    "X-OpenViking-Account": "hub",
+    "X-OpenViking-User": "household",
+}
+if settings.openviking_api_key:
+    _HEADERS["X-API-Key"] = settings.openviking_api_key
 
 
 async def _post(path: str, json: dict) -> dict:
@@ -35,21 +40,19 @@ async def _get(url: str) -> dict:
         return resp.json()
 
 
-async def _upload_text(text: str, filename: str, target_uri: str) -> dict:
-    """Upload text content via temp_upload, then add as resource."""
-    async with httpx.AsyncClient(base_url=_BASE_URL, headers=_HEADERS, timeout=30.0) as client:
-        # Step 1: temp upload
+async def _upload_and_store(text: str, filename: str, target_uri: str) -> dict:
+    """Upload text via temp_upload, then store as resource."""
+    async with httpx.AsyncClient(base_url=_BASE_URL, headers=_HEADERS, timeout=60.0) as client:
         upload_resp = await client.post(
             "/api/v1/resources/temp_upload",
             files={"file": (filename, io.BytesIO(text.encode()), "text/markdown")},
         )
         upload_resp.raise_for_status()
-        temp_file_id = upload_resp.json().get("temp_file_id")
+        temp_path = upload_resp.json()["result"]["temp_path"]
 
-        # Step 2: add resource at target URI
         add_resp = await client.post(
             "/api/v1/resources",
-            json={"temp_file_id": temp_file_id, "to": target_uri, "wait": True},
+            json={"temp_path": temp_path, "to": target_uri, "wait": True},
         )
         add_resp.raise_for_status()
         return add_resp.json()
@@ -60,6 +63,12 @@ def _memory_id(text: str) -> str:
     ts = int(time.time())
     h = hashlib.sha256(text.encode()).hexdigest()[:8]
     return f"{ts}-{h}.md"
+
+
+def _mem_uri(user_id: str, filename: str = "") -> str:
+    """Build a viking://resources/memories/... URI."""
+    base = f"viking://resources/memories/{user_id}/"
+    return f"{base}{filename}" if filename else base
 
 
 @mcp.tool
@@ -79,8 +88,8 @@ async def remember(
     """
     try:
         filename = _memory_id(text)
-        target_uri = f"viking://user/memories/{user_id}/{filename}"
-        await _upload_text(text, filename, target_uri)
+        target_uri = _mem_uri(user_id, filename)
+        await _upload_and_store(text, filename, target_uri)
         return f"Stored: {text[:80]}{'...' if len(text) > 80 else ''} (uri: {target_uri})"
     except Exception as e:  # noqa: BLE001 — graceful degradation, memory is optional
         return f"Memory unavailable: {e}"
@@ -104,7 +113,7 @@ async def recall(
             "/api/v1/search/find",
             json={
                 "query": query,
-                "target_uri": f"viking://user/memories/{user_id}/",
+                "target_uri": _mem_uri(user_id),
             },
         )
         memories = result.get("result", {}).get("memories", [])
@@ -126,8 +135,7 @@ async def list_memories(
         user_id: Filter by household member. Default "household" for shared facts.
     """
     try:
-        mem_uri = f"viking://user/memories/{user_id}/"
-        result = await _get(f"/api/v1/fs/ls?uri={mem_uri}")
+        result = await _get(f"/api/v1/fs/ls?uri={_mem_uri(user_id)}")
         entries = [e for e in result.get("result", []) if not e.get("isDir", False)]
         if not entries:
             return "No memories stored yet."
@@ -147,15 +155,14 @@ async def forget(
         memory_id: The URI of the memory to archive (from recall or list_memories results).
     """
     try:
-        # Extract user_id and filename from URI: viking://user/memories/{user_id}/{filename}
-        parts = memory_id.replace("viking://user/memories/", "").rstrip("/").split("/")
+        parts = memory_id.replace("viking://resources/memories/", "").rstrip("/").split("/")
         user_id = parts[0] if len(parts) > 1 else "household"
         filename = parts[-1]
         await _post(
             "/api/v1/fs/mv",
             json={
                 "from_uri": memory_id,
-                "to_uri": f"viking://user/archive/{user_id}/{filename}",
+                "to_uri": f"viking://resources/archive/{user_id}/{filename}",
             },
         )
         return f"Archived: {filename} (was: {memory_id})"
