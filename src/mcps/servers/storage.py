@@ -166,7 +166,7 @@ def move(
     src_encoded = "/" + "/".join(quote(seg, safe="") for seg in src.strip("/").split("/") if seg)
     dst_encoded = settings.webdav_url.rstrip("/") + "/" + "/".join(quote(seg, safe="") for seg in dst.strip("/").split("/") if seg)
     with _client() as c:
-        resp = c.request("MOVE", src_encoded, headers={"Destination": dst_encoded})
+        resp = c.request("MOVE", src_encoded, headers={"Destination": dst_encoded}, follow_redirects=True)
         resp.raise_for_status()
     return True
 

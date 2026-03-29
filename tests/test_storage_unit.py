@@ -332,5 +332,6 @@ def test_move_sends_move_request_with_destination(mock_client):
         "MOVE",
         "/media/old.mkv",
         headers={"Destination": "http://localhost/webdav/media/new.mkv"},
+        follow_redirects=True,
     )
     resp.raise_for_status.assert_called_once()
